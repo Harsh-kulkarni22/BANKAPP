@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Landmark } from 'lucide-react';
 import './AuthPage.css';
 
 const API_BASE = '/api';
 
 function AuthPage() {
   const [mode, setMode] = useState('login');
-  const [loginUsername, setLoginUsername] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [signupData, setSignupData] = useState({
     username: '',
     email: '',
-    phone: '',
     password: '',
     confirmPassword: '',
   });
@@ -36,12 +36,6 @@ function AuthPage() {
     setLoading(true);
 
     try {
-      // #region agent log
-      console.log('[AuthPage] Submitting login', {
-        username: loginUsername,
-      });
-      // #endregion agent log
-
       const response = await fetch(`${API_BASE}/login`, {
         method: 'POST',
         credentials: 'include',
@@ -49,7 +43,7 @@ function AuthPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: loginUsername,
+          email: loginEmail,
           password: loginPassword,
         }),
       });
@@ -61,27 +55,14 @@ function AuthPage() {
         return;
       }
 
-      // #region agent log
-      console.log('[AuthPage] Login success', {
-        status: response.status,
-        body: data,
-      });
-      // #endregion agent log
-
       navigate('/dashboard', {
         replace: true,
         state: {
           fromLogin: true,
-          username: loginUsername,
+          username: data.username || loginEmail,
         },
       });
     } catch (err) {
-      // #region agent log
-      console.log('[AuthPage] Login network error', {
-        name: err?.name,
-        message: err?.message,
-      });
-      // #endregion agent log
       setError('Network error during login');
     } finally {
       setLoading(false);
@@ -109,29 +90,6 @@ function AuthPage() {
     setLoading(true);
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7389/ingest/f2a30d99-8cdc-4359-8b1b-d333569b609a', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Debug-Session-Id': 'b85dfe',
-        },
-        body: JSON.stringify({
-          sessionId: 'b85dfe',
-          runId: 'pre-fix',
-          hypothesisId: 'H1',
-          location: 'AuthPage.jsx:signup:beforeFetch',
-          message: 'Signup fetch about to send',
-          data: {
-            apiBase: API_BASE,
-            hasPassword: Boolean(signupData.password),
-            hasConfirmPassword: Boolean(signupData.confirmPassword),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion agent log
-
       const response = await fetch(`${API_BASE}/signup`, {
         method: 'POST',
         credentials: 'include',
@@ -141,7 +99,6 @@ function AuthPage() {
         body: JSON.stringify({
           username: signupData.username,
           email: signupData.email,
-          phone: signupData.phone,
           password: signupData.password,
           confirmPassword: signupData.confirmPassword,
         }),
@@ -154,37 +111,15 @@ function AuthPage() {
         return;
       }
 
-      setSuccess('Signup successful. Please log in.');
+      setSuccess('Signup successful. Please sign in.');
       setSignupData({
         username: '',
         email: '',
-        phone: '',
         password: '',
         confirmPassword: '',
       });
       setMode('login');
     } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7389/ingest/f2a30d99-8cdc-4359-8b1b-d333569b609a', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Debug-Session-Id': 'b85dfe',
-        },
-        body: JSON.stringify({
-          sessionId: 'b85dfe',
-          runId: 'pre-fix',
-          hypothesisId: 'H2',
-          location: 'AuthPage.jsx:signup:catch',
-          message: 'Signup fetch threw error',
-          data: {
-            name: err?.name,
-            message: err?.message,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion agent log
       setError('Network error during signup');
     } finally {
       setLoading(false);
@@ -192,40 +127,34 @@ function AuthPage() {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-container">
       <div className="auth-card">
-        <h1 className="auth-title">Banking Simulation</h1>
-        <div className="auth-toggle">
-          <button
-            type="button"
-            className={mode === 'login' ? 'toggle-btn active' : 'toggle-btn'}
-            onClick={() => switchMode('login')}
-          >
-            Login
-          </button>
-          <button
-            type="button"
-            className={mode === 'signup' ? 'toggle-btn active' : 'toggle-btn'}
-            onClick={() => switchMode('signup')}
-          >
-            Sign Up
-          </button>
+        <div className="auth-header">
+          <div className="auth-logo-bg">
+            <Landmark size={28} color="#1d4ed8" />
+          </div>
+          <h1>{mode === 'login' ? 'Welcome Back' : 'Create Account'}</h1>
+          <p>
+            {mode === 'login'
+              ? 'Sign in to your MONEY BANK account'
+              : 'Register for MONEY BANK Internet Banking'}
+          </p>
         </div>
 
         {error && <div className="auth-alert error">{error}</div>}
         {success && <div className="auth-alert success">{success}</div>}
 
         {mode === 'login' ? (
-          <form className="auth-form" onSubmit={handleLoginSubmit}>
+          <form onSubmit={handleLoginSubmit} className="auth-form">
             <div className="form-group">
-              <label htmlFor="login-username">Username</label>
+              <label htmlFor="login-email">Email Address</label>
               <input
-                id="login-username"
-                type="text"
-                value={loginUsername}
-                onChange={(e) => setLoginUsername(e.target.value)}
+                id="login-email"
+                type="email"
+                placeholder="@gmail.com"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
                 required
-                autoComplete="username"
               />
             </div>
             <div className="form-group">
@@ -233,48 +162,46 @@ function AuthPage() {
               <input
                 id="login-password"
                 type="password"
+                placeholder="Enter your password"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
                 required
-                autoComplete="current-password"
               />
             </div>
             <button type="submit" className="primary-btn" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Signing In...' : 'Sign In'}
             </button>
+            <p className="auth-footer">
+              Don't have an account?{' '}
+              <span onClick={() => switchMode('signup')} className="auth-link">
+                Register
+              </span>
+            </p>
           </form>
         ) : (
-          <form className="auth-form" onSubmit={handleSignupSubmit}>
+          <form onSubmit={handleSignupSubmit} className="auth-form">
             <div className="form-group">
-              <label htmlFor="signup-username">Username</label>
+              <label htmlFor="signup-username">Full Name</label>
               <input
                 id="signup-username"
                 name="username"
                 type="text"
+                placeholder="Enter your full name"
                 value={signupData.username}
                 onChange={handleSignupChange}
                 required
               />
             </div>
             <div className="form-group">
-              <label htmlFor="signup-email">Email</label>
+              <label htmlFor="signup-email">Email Address</label>
               <input
                 id="signup-email"
                 name="email"
                 type="email"
+                placeholder="Enter your email"
                 value={signupData.email}
                 onChange={handleSignupChange}
                 required
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="signup-phone">Phone</label>
-              <input
-                id="signup-phone"
-                name="phone"
-                type="tel"
-                value={signupData.phone}
-                onChange={handleSignupChange}
               />
             </div>
             <div className="form-group">
@@ -283,9 +210,11 @@ function AuthPage() {
                 id="signup-password"
                 name="password"
                 type="password"
+                placeholder="Create a password (min 6 chars)"
                 value={signupData.password}
                 onChange={handleSignupChange}
                 required
+                minLength={6}
               />
             </div>
             <div className="form-group">
@@ -294,14 +223,22 @@ function AuthPage() {
                 id="signup-confirm-password"
                 name="confirmPassword"
                 type="password"
+                placeholder="Confirm your password"
                 value={signupData.confirmPassword}
                 onChange={handleSignupChange}
                 required
+                minLength={6}
               />
             </div>
             <button type="submit" className="primary-btn" disabled={loading}>
-              {loading ? 'Signing up...' : 'Sign Up'}
+              {loading ? 'Creating Account...' : 'Create Account'}
             </button>
+            <p className="auth-footer">
+              Already have an account?{' '}
+              <span onClick={() => switchMode('login')} className="auth-link">
+                Sign In
+              </span>
+            </p>
           </form>
         )}
       </div>
@@ -310,4 +247,3 @@ function AuthPage() {
 }
 
 export default AuthPage;
-

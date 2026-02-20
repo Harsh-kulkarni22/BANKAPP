@@ -1,229 +1,131 @@
+import { useOutletContext, useNavigate } from 'react-router-dom';
+import {
+  Wallet,
+  Landmark,
+  CreditCard,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  ArrowRightLeft
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 
 const API_BASE = '/api';
 
-function Dashboard() {
-  const location = useLocation();
-  const fromLogin = location.state?.fromLogin || false;
-  const initialUsername = location.state?.username || '';
-
-  const [userData, setUserData] = useState({ id: '...', username: initialUsername, email: '...' });
-  const [balance, setBalance] = useState(null);
-  const [balanceError, setBalanceError] = useState('');
-  const [loadingUser, setLoadingUser] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [logoutLoading, setLogoutLoading] = useState(false);
-
+export default function Dashboard() {
+  const { userData } = useOutletContext();
   const navigate = useNavigate();
+  const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function fetchUser() {
+    async function fetchTxs() {
       try {
-        const response = await fetch(`${API_BASE}/me`, {
-          method: 'GET',
-          credentials: 'include',
-        });
-
-        if (response.status === 401) {
-          if (!cancelled) {
-            setIsAuthenticated(false);
-            setAuthChecked(true);
-          }
-          return;
-        }
-
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          if (!cancelled) {
-            setIsAuthenticated(false);
-            setAuthChecked(true);
-          }
-          return;
-        }
-
-        if (!cancelled) {
-          setUserData({ id: data.id, username: data.username, email: data.email });
-          setIsAuthenticated(true);
-          setAuthChecked(true);
+        const res = await fetch(`${API_BASE}/transactions`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          // just show top 5 in UI
+          setTransactions(data.transactions.slice(0, 5));
         }
       } catch (err) {
-        if (!cancelled) {
-          setIsAuthenticated(false);
-          setAuthChecked(true);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingUser(false);
-        }
+        console.error(err);
       }
     }
-
-    if (fromLogin) {
-      setIsAuthenticated(true);
-      setAuthChecked(true);
-      fetchUser();
-    } else {
-      fetchUser();
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [fromLogin]);
-
-  useEffect(() => {
-    if (authChecked && !isAuthenticated) {
-      navigate('/', { replace: true });
-    }
-  }, [authChecked, isAuthenticated, navigate]);
-
-  const handleCheckBalance = async () => {
-    setBalanceError('');
-    try {
-      const response = await fetch(`${API_BASE}/balance`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        setBalanceError(data.message || 'Could not fetch balance');
-        setBalance(null);
-        return;
-      }
-
-      setBalance(data.balance);
-    } catch (err) {
-      setBalanceError('Network error while fetching balance');
-      setBalance(null);
-    }
-  };
-
-  const handleLogout = async () => {
-    setLogoutLoading(true);
-    try {
-      await fetch(`${API_BASE}/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      navigate('/', { replace: true });
-    } catch (err) {
-      navigate('/', { replace: true });
-    } finally {
-      setLogoutLoading(false);
-    }
-  };
-
-  if (loadingUser && !isAuthenticated) {
-    return (
-      <div className="dashboard-container">
-        <div className="loading-spinner">Loading securely...</div>
-      </div>
-    );
-  }
+    fetchTxs();
+  }, []);
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-layout">
+    <div className="dashboard-content">
+      <h1 className="page-title">Account Dashboard</h1>
 
-        {/* Sidebar / Account Info Column */}
-        <aside className="dashboard-sidebar">
-          <div className="profile-section">
-            <div className="profile-avatar">
-              {userData.username ? userData.username.charAt(0).toUpperCase() : 'U'}
-            </div>
-            <h2 className="profile-name">{userData.username || 'User'}</h2>
-            <p className="profile-role">Premium Member</p>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon-wrapper wallet">
+            <Wallet size={24} color="#60a5fa" />
           </div>
-
-          <div className="account-details">
-            <div className="detail-item">
-              <span className="detail-label">Account ID</span>
-              <span className="detail-value">#{String(userData.id).padStart(6, '0')}</span>
-            </div>
-            <div className="detail-item">
-              <span className="detail-label">Email</span>
-              <span className="detail-value">{userData.email || 'Not provided'}</span>
-            </div>
-            <div className="detail-item">
-              <span className="detail-label">Status</span>
-              <span className="detail-value status-active">Active</span>
-            </div>
+          <div className="stat-info">
+            <span>CURRENT BALANCE</span>
+            <h3>₹{Number(userData?.balance || 0).toFixed(2)}</h3>
           </div>
+        </div>
 
-          <button
-            type="button"
-            className="logout-btn"
-            onClick={handleLogout}
-            disabled={logoutLoading}
-          >
-            {logoutLoading ? 'Logging out...' : 'Logout securely'}
+        <div className="stat-card">
+          <div className="stat-icon-wrapper bank">
+            <Landmark size={24} color="#34d399" />
+          </div>
+          <div className="stat-info">
+            <span>ACCOUNT NUMBER</span>
+            <h3>{userData?.account_number || 'N/A'}</h3>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon-wrapper card">
+            <CreditCard size={24} color="#fbbf24" />
+          </div>
+          <div className="stat-info">
+            <span>IFSC CODE</span>
+            <h3>{userData?.ifsc || 'SBIN0001234'}</h3>
+          </div>
+        </div>
+      </div>
+
+      <div className="section-container">
+        <h2 className="section-title">Quick Actions</h2>
+        <div className="quick-actions-grid">
+          <button className="quick-action-btn" onClick={() => navigate('/deposit')}>
+            <ArrowDownCircle size={18} />
+            Deposit Funds
           </button>
-        </aside>
+          <button className="quick-action-btn" onClick={() => navigate('/withdraw')}>
+            <ArrowUpCircle size={18} />
+            Withdraw Funds
+          </button>
+          <button className="quick-action-btn transfer" onClick={() => navigate('/transfer')}>
+            <ArrowRightLeft size={18} />
+            Transfer Money
+          </button>
+        </div>
+      </div>
 
-        {/* Main Content Column */}
-        <main className="dashboard-main">
-          <header className="main-header">
-            <h1 className="welcome-title">Good to see you, {userData.username}!</h1>
-            <p className="welcome-subtitle">Manage your finances efficiently from your simulated dashboard.</p>
-          </header>
+      <div className="section-container transactions-section">
+        <div className="section-header">
+          <h2 className="section-title">Recent Transactions</h2>
+          <button className="view-all-btn" onClick={() => navigate('/transactions')}>View All</button>
+        </div>
 
-          <div className="action-cards-grid">
-            <div className="action-card primary-action">
-              <div className="card-icon balance-icon">💰</div>
-              <h3>Current Balance</h3>
-              <p>Check your latest available simulated funds.</p>
-
-              {balance !== null && !balanceError ? (
-                <div className="balance-amount animate-pop">
-                  ${Number(balance).toFixed(2)}
-                </div>
+        <div className="table-responsive">
+          <table className="transactions-table">
+            <thead>
+              <tr>
+                <th>DATE</th>
+                <th>DESCRIPTION</th>
+                <th>TYPE</th>
+                <th>AMOUNT</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.length > 0 ? (
+                transactions.map((tx) => (
+                  <tr key={tx.id}>
+                    <td>{new Date(tx.created_at).toLocaleDateString()}</td>
+                    <td>{tx.description}</td>
+                    <td className={`tx-type ${tx.type.toLowerCase()}`}>{tx.type}</td>
+                    <td className="tx-amount">₹{Number(tx.amount).toFixed(2)}</td>
+                    <td>
+                      <span className="tx-status">{tx.status}</span>
+                    </td>
+                  </tr>
+                ))
               ) : (
-                <button
-                  type="button"
-                  className="action-btn"
-                  onClick={handleCheckBalance}
-                >
-                  Check Balance
-                </button>
+                <tr>
+                  <td colSpan="5" className="empty-state">No transactions yet</td>
+                </tr>
               )}
-
-              {balanceError && (
-                <div className="dashboard-error">{balanceError}</div>
-              )}
-            </div>
-
-            <div className="action-card secondary-action">
-              <div className="card-icon transfer-icon">💸</div>
-              <h3>Quick Transfer</h3>
-              <p>Send simulated money to other accounts instantly.</p>
-              <button
-                type="button"
-                className="action-btn outline-btn"
-                disabled
-              >
-                Feature Coming Soon
-              </button>
-            </div>
-          </div>
-
-          <div className="recent-activity-placeholder">
-            <h3>Recent Activity</h3>
-            <div className="empty-state">
-              <p>No transactions yet. Check your balance to get started.</p>
-            </div>
-          </div>
-        </main>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
-
-export default Dashboard;

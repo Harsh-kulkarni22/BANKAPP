@@ -82,30 +82,6 @@ app.post('/signup', async (req, res) => {
   try {
     const { username, email, phone, password, confirmPassword } = req.body || {};
 
-    // #region agent log
-    fetch('http://127.0.0.1:7389/ingest/f2a30d99-8cdc-4359-8b1b-d333569b609a', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': 'b85dfe',
-      },
-      body: JSON.stringify({
-        sessionId: 'b85dfe',
-        runId: 'pre-fix',
-        hypothesisId: 'H3',
-        location: 'index.js:/signup',
-        message: 'Signup request received',
-        data: {
-          origin: req.headers.origin,
-          hasBody: Boolean(req.body),
-          hasUsername: Boolean(username),
-          hasEmail: Boolean(email),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => { });
-    // #endregion agent log
-
     if (!username || !email || !password || !confirmPassword) {
       return res.status(400).json({ message: 'Required fields missing' });
     }
@@ -117,17 +93,18 @@ app.post('/signup', async (req, res) => {
     const pool = getPool();
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const accountNumber = Math.floor(100000000000 + Math.random() * 900000000000).toString();
 
     try {
       await pool.query(
-        'INSERT INTO bankuser (username, email, phone, password_hash, balance) VALUES (?, ?, ?, ?, 0.00)',
-        [username, email, phone || null, passwordHash]
+        'INSERT INTO bankuser (username, email, phone, password_hash, balance, account_number) VALUES (?, ?, ?, ?, 0.00, ?)',
+        [username, email, phone || null, passwordHash, accountNumber]
       );
     } catch (err) {
       if (err && err.code === 'ER_DUP_ENTRY') {
         return res
           .status(409)
-          .json({ message: 'Username or email already exists' });
+          .json({ message: 'Email already exists' });
       }
       throw err;
     }
@@ -142,16 +119,16 @@ app.post('/signup', async (req, res) => {
 
 app.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body || {};
+    const { email, password } = req.body || {};
 
-    if (!username || !password) {
-      return res.status(400).json({ message: 'Username and password required' });
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password required' });
     }
 
     const pool = getPool();
     const [users] = await pool.query(
-      'SELECT customer_id, username, password_hash FROM bankuser WHERE username = ?',
-      [username]
+      'SELECT customer_id, username, password_hash FROM bankuser WHERE email = ?',
+      [email]
     );
 
     if (!users.length) {
@@ -199,7 +176,7 @@ app.get('/me', authenticate, async (req, res) => {
   try {
     const pool = getPool();
     const [rows] = await pool.query(
-      'SELECT customer_id, username, email FROM bankuser WHERE customer_id = ?',
+      'SELECT customer_id, username, email, account_number, balance, created_at FROM bankuser WHERE customer_id = ?',
       [req.user.customerId]
     );
 
@@ -212,6 +189,10 @@ app.get('/me', authenticate, async (req, res) => {
       id: user.customer_id,
       username: user.username,
       email: user.email,
+      account_number: user.account_number,
+      balance: user.balance,
+      created_at: user.created_at,
+      ifsc: 'MONY0001234'
     });
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -236,6 +217,91 @@ app.get('/balance', authenticate, async (req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('Balance error', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.post('/deposit', authenticate, async (req, res) => {
+  try {
+    const { amount, description } = req.body;
+    if (!amount || amount <= 0 || amount > 1000000) {
+      return res.status(400).json({ message: 'Invalid deposit amount' });
+    }
+
+    const pool = getPool();
+    // Use transaction
+    const conn = await pool.getConnection();
+    await conn.beginTransaction();
+
+    try {
+      await conn.query('UPDATE bankuser SET balance = balance + ? WHERE customer_id = ?', [amount, req.user.customerId]);
+      await conn.query(
+        'INSERT INTO banktransaction (customer_id, type, amount, description) VALUES (?, ?, ?, ?)',
+        [req.user.customerId, 'Deposit', amount, description || 'Cash deposit']
+      );
+      await conn.commit();
+      res.json({ message: 'Deposit successful' });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error('Deposit error', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.post('/withdraw', authenticate, async (req, res) => {
+  try {
+    const { amount, description } = req.body;
+    if (!amount || amount <= 0 || amount > 100000) {
+      return res.status(400).json({ message: 'Invalid withdrawal amount' });
+    }
+
+    const pool = getPool();
+    const conn = await pool.getConnection();
+    await conn.beginTransaction();
+
+    try {
+      const [rows] = await conn.query('SELECT balance FROM bankuser WHERE customer_id = ? FOR UPDATE', [req.user.customerId]);
+      if (rows[0].balance < amount) {
+        await conn.rollback();
+        conn.release();
+        return res.status(400).json({ message: 'Insufficient funds' });
+      }
+
+      await conn.query('UPDATE bankuser SET balance = balance - ? WHERE customer_id = ?', [amount, req.user.customerId]);
+      await conn.query(
+        'INSERT INTO banktransaction (customer_id, type, amount, description) VALUES (?, ?, ?, ?)',
+        [req.user.customerId, 'Withdrawal', amount, description || 'ATM withdrawal']
+      );
+      await conn.commit();
+      res.json({ message: 'Withdrawal successful' });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  } catch (err) {
+    console.error('Withdraw error', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.get('/transactions', authenticate, async (req, res) => {
+  try {
+    const pool = getPool();
+    const [rows] = await pool.query(
+      'SELECT id, type, amount, description, status, created_at FROM banktransaction WHERE customer_id = ? ORDER BY created_at DESC',
+      [req.user.customerId]
+    );
+
+    return res.json({ transactions: rows });
+  } catch (err) {
+    console.error('Transactions error', err);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

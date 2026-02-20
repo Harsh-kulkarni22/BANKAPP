@@ -33,11 +33,50 @@ async function setupDatabase() {
   await connection.query(`
     CREATE TABLE IF NOT EXISTS bankuser (
       customer_id INT AUTO_INCREMENT PRIMARY KEY,
-      username VARCHAR(100) UNIQUE NOT NULL,
+      username VARCHAR(100) NOT NULL,
       email VARCHAR(150) UNIQUE NOT NULL,
       phone VARCHAR(15),
       password_hash VARCHAR(255) NOT NULL,
-      balance DECIMAL(12,2) DEFAULT 0.00
+      balance DECIMAL(12,2) DEFAULT 0.00,
+      account_number VARCHAR(20) UNIQUE
+    )
+  `);
+
+  try {
+    await connection.query('ALTER TABLE bankuser ADD COLUMN account_number VARCHAR(20) UNIQUE');
+  } catch (err) {
+    if (err.code !== 'ER_DUP_FIELDNAME') {
+      console.error('Failed to add account_number column:', err.message);
+    }
+  }
+
+  try {
+    await connection.query('ALTER TABLE bankuser ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP');
+  } catch (err) {
+    if (err.code !== 'ER_DUP_FIELDNAME') {
+      console.error('Failed to add created_at column:', err.message);
+    }
+  }
+
+  try {
+    await connection.query('ALTER TABLE bankuser DROP INDEX username');
+  } catch (err) {
+    // Ignore if index doesn't exist
+  }
+
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS banktransaction (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT,
+      type VARCHAR(20) NOT NULL,
+      amount DECIMAL(12,2) NOT NULL,
+      description VARCHAR(255),
+      status VARCHAR(20) DEFAULT 'Completed',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_transaction_customer
+        FOREIGN KEY (customer_id)
+        REFERENCES bankuser(customer_id)
+        ON DELETE CASCADE
     )
   `);
 
