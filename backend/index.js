@@ -11,7 +11,7 @@ dotenv.config();
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 const COOKIE_NAME = 'authToken';
@@ -42,7 +42,6 @@ app.use(cookieParser());
 
 async function authenticate(req, res, next) {
   try {
-    console.log('[Auth Middleware] Cookies received:', req.cookies);
     const token = req.cookies[COOKIE_NAME];
     if (!token) {
       return res.status(401).json({ message: 'Not authenticated' });
@@ -119,16 +118,17 @@ app.post('/signup', async (req, res) => {
 
 app.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const { username, email, password } = req.body || {};
+    const loginId = (username || email || '').trim();
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password required' });
+    if (!loginId || !password) {
+      return res.status(400).json({ message: 'Username or email and password required' });
     }
 
     const pool = getPool();
     const [users] = await pool.query(
-      'SELECT customer_id, username, password_hash FROM bankuser WHERE email = ?',
-      [email]
+      'SELECT customer_id, username, password_hash FROM bankuser WHERE email = ? OR username = ?',
+      [loginId, loginId]
     );
 
     if (!users.length) {
@@ -334,6 +334,10 @@ app.post('/logout', authenticate, async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+const aiRoutes = require('./routes/aiRoutes');
+// Mounted at /ai (not /api/ai): Vite dev proxy strips the /api prefix, so /api/ai/chat → /ai/chat
+app.use('/ai', authenticate, aiRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });

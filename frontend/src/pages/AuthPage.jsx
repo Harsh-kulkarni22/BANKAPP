@@ -51,7 +51,7 @@ function AuthPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setError(data.message || 'Login failed');
+        setError(data.message || `Login failed (HTTP ${response.status})`);
         return;
       }
 
@@ -107,7 +107,10 @@ function AuthPage() {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setError(data.message || 'Signup failed');
+        setError(
+          data.message ||
+            `Signup failed (HTTP ${response.status}). Ensure the bank API is running and Vite proxy target matches backend PORT (see README).`
+        );
         return;
       }
 

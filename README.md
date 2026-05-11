@@ -33,6 +33,7 @@ Exposed routes:
 - `GET /balance` (protected)
 - `POST /transfer` (always returns 503 "Transfer feature under development")
 - `POST /logout`
+- `POST /api/ai/chat` (protected) — forwards to Hugging Face **Inference Providers** (`router.huggingface.co/v1`). Set `HF_API_KEY` (or `HF_TOKEN`) in `backend/.env` to a [Hugging Face access token](https://huggingface.co/settings/tokens) that can call Inference Providers. If `HF_CHAT_MODEL` is unset, the backend tries several small models with a `:fastest` router suffix; override `HF_CHAT_MODEL` if your account needs a specific model or provider.
 
 ### Frontend setup
 
@@ -44,7 +45,7 @@ npm run dev
 ```
 
 2. Make sure `FRONTEND_ORIGIN` in `backend/.env` matches the dev URL (default `http://localhost:5173`).
-3. Optionally set `VITE_API_BASE_URL` in `frontend/.env` (defaults to `http://localhost:3000`).
+3. The API listens on **`PORT`** from `backend/.env` (default **4000**). The Vite dev server proxies `/api` to that URL. If you change `PORT`, set the same host in `frontend/.env` as `VITE_API_PROXY_TARGET` (for example `http://localhost:4000`).
 
 All API calls are made with `credentials: "include"` so the HTTP‑only auth cookie flows automatically.
 

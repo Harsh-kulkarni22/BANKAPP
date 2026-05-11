@@ -6,6 +6,7 @@ import Deposit from './pages/Deposit.jsx';
 import Withdraw from './pages/Withdraw.jsx';
 import Transactions from './pages/Transactions.jsx';
 import Profile from './pages/Profile.jsx';
+import AiChat from './pages/AiChat.jsx';
 import Layout from './components/Layout.jsx';
 
 const PlaceholderPage = ({ title }) => (
@@ -21,6 +22,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<AuthPage />} />
+      <Route path="/ai-chat" element={<AiChat />} />
 
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<Dashboard />} />

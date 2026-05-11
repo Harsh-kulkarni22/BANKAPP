@@ -8,9 +8,13 @@ let pool;
 async function setupDatabase() {
   const {
     DB_HOST,
+    DB_HOST_IP,
     DB_USER,
     DB_PASSWORD,
     DB_PORT,
+    DB_SSL,
+    DB_CONNECT_TIMEOUT_MS,
+    DB_SSL_SERVERNAME,
   } = process.env;
 
   if (!DB_HOST || !DB_USER) {
@@ -18,12 +22,25 @@ async function setupDatabase() {
   }
 
   const port = DB_PORT ? Number(DB_PORT) : 3306;
+  const connectTimeout = DB_CONNECT_TIMEOUT_MS
+    ? Number(DB_CONNECT_TIMEOUT_MS)
+    : 30000;
+  const useSsl = (DB_SSL || 'true').toLowerCase() !== 'false';
+  const ssl = useSsl
+    ? {
+      rejectUnauthorized: false,
+      servername: DB_SSL_SERVERNAME || DB_HOST,
+    }
+    : undefined;
+  const resolvedHost = DB_HOST_IP || DB_HOST;
 
   const connection = await mysql.createConnection({
-    host: DB_HOST,
+    host: resolvedHost,
     user: DB_USER,
     password: DB_PASSWORD,
     port,
+    ssl,
+    connectTimeout,
     multipleStatements: true,
   });
 
@@ -96,11 +113,13 @@ async function setupDatabase() {
   await connection.end();
 
   pool = mysql.createPool({
-    host: DB_HOST,
+    host: resolvedHost,
     user: DB_USER,
     password: DB_PASSWORD,
     database: 'banking_simulation',
     port,
+    ssl,
+    connectTimeout,
     waitForConnections: true,
     connectionLimit: 10,
   });

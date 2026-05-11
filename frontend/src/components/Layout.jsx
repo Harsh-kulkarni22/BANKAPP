@@ -11,6 +11,7 @@ import {
     LogOut
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import AiFloatingButton from './AiFloatingButton.jsx';
 import './Layout.css';
 
 const API_BASE = '/api';
@@ -65,6 +66,7 @@ export default function Layout() {
 
     return (
         <div className="layout-wrapper">
+            <AiFloatingButton />
             <header className="top-header">
                 <div className="header-brand">
                     <div className="brand-logo">

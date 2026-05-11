@@ -1,0 +1,12 @@
+﻿[dotenv@17.3.1] injecting env (7) from .env -- tip: ≡ƒñû agentic secret storage: https://dotenvx.com/as2
+Key starting with: hf_MF
+Error status: 400
+Error data: {
+  "error": {
+    "message": "The requested model 'mistralai/Mistral-7B-Instruct-v0.3' is not a chat model.",
+    "type": "invalid_request_error",
+    "param": "model",
+    "code": "model_not_supported"
+  }
+}
+Error message: Request failed with status code 400
